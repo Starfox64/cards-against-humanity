@@ -12,6 +12,7 @@ if (SERVER) then
 	include("external/von.lua")
 	include("external/netstream.lua")
 
+	include("cah/sv_hooks.lua")
 	include("cah/sh_cah.lua")
 	include("cah/sv_cah.lua")
 else

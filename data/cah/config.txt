@@ -1,0 +1,28 @@
+{
+	extensions:{
+		Base: true,
+		CAHe1: true,
+		CAHe2: true,
+		CAHe3: true,
+		CAHe4: true,
+		CAHe5: true,
+		CAHgrognards: false,
+		CAHweeaboo: false,
+		CAHxmas: false,
+		NEIndy: false,
+		NSFH: false,
+		Image1: false,
+		GOT: false,
+		PAXP13: false,
+		PAXE13: false,
+		HACK: false,
+		Box: false,
+		Gallifrey: false,
+		Alternia: false,
+		Ladies Against Humanity: false,
+		Canadian Conversion Kit: false,
+		Nobilis Reed: false,
+		christmas2013: false,
+		90s: false
+	}
+}
