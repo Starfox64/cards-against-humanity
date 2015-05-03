@@ -15,6 +15,7 @@ hook.Add("EntityRemoved", "CAH_EntityRemoved", function( ent )
 		end
 
 		CAH.Games[ent:EntIndex()] = nil
+		netstream.Start(nil, "CAH_GameDel", ent:EntIndex())
 	end
 end)
 

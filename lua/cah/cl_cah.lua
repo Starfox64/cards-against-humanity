@@ -19,8 +19,6 @@ local CARDS_ORIGIN = {
 local handMat = Material("cah/hand64.png")
 local cursorColor = Color(220, 220, 220, 255)
 
-local ply = LocalPlayer()
-
 CAH.playerColors = {
 	Color(249, 56, 38),
 	Color(253, 119, 41),
@@ -61,6 +59,7 @@ local BLACK_FLIPPED = markup.Parse("<color=0,0,0><font=CAH_CardBackFont>Cards Ag
 hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function()
 	for k, cahGame in pairs(CAH:GetGames()) do
 		local cahTable = cahGame:GetTable()
+		local ply = LocalPlayer()
 
 		if (IsValid(cahTable) and cahTable:GetPos():DistToSqr(ply:GetPos()) < 40000) then
 			local angles = cahTable:GetAngles()
@@ -102,9 +101,9 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 				surface.DrawLine(0, 0, 0, 100)]]
 				--draw.RoundedBox(0, 0, 0, TABLE_WIDTH, TABLE_HEIGHT, Color(255, 255, 255, 50))
 
-				/*surface.SetMaterial(Material("cah/exit256.png"))
+				--[[surface.SetMaterial(Material("cah/exit256.png"))
 				surface.SetDrawColor(Color(255, 255, 255, 255))
-				surface.DrawTexturedRectRotated(1200, 400, 128, 128, 0)*/
+				surface.DrawTexturedRectRotated(1200, 400, 128, 128, 0)]]
 
 				-- Decks --
 				for seatID, client in pairs(cahGame:GetPlayers()) do
@@ -141,6 +140,7 @@ end)
 
 -- CAH Cursor Position Generator --
 function CAH:GetCursor( cahTable, angles )
+	local ply = LocalPlayer()
 	local chairID = ply:GetVehicle():GetNWInt("CAH_ChairID")
 	local cursorData = {x = -1, y = -1, r = 0}
 
