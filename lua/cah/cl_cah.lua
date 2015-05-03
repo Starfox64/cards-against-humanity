@@ -16,6 +16,11 @@ local CARDS_ORIGIN = {
 	{x = -100, y = 670}
 }
 
+local handMat = Material("cah/hand64.png")
+local cursorColor = Color(220, 220, 220, 255)
+
+local ply = LocalPlayer()
+
 CAH.playerColors = {
 	Color(249, 56, 38),
 	Color(253, 119, 41),
@@ -57,57 +62,27 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 	for k, cahGame in pairs(CAH:GetGames()) do
 		local cahTable = cahGame:GetTable()
 
-		if (IsValid(cahTable) and cahTable:GetPos():DistToSqr(LocalPlayer():GetPos()) < 40000) then
+		if (IsValid(cahTable) and cahTable:GetPos():DistToSqr(ply:GetPos()) < 40000) then
 			local angles = cahTable:GetAngles()
 			angles:RotateAroundAxis(angles:Up(), 90)
 
 			local cursor = CAH:GetCursor(cahTable, angles)
 
-			-- Main 3D2D Context --
-			cam.Start3D2D(cahTable:LocalToWorld(cahTable.origin), angles, SCALE)
-				surface.SetDrawColor(Color(255, 0, 0))
-				surface.DrawLine(0, 0, 100, 0)
-				surface.SetDrawColor(Color(0, 255, 0))
-				surface.DrawLine(0, 0, 0, 100)
-				--draw.RoundedBox(0, 0, 0, TABLE_WIDTH, TABLE_HEIGHT, Color(255, 255, 255, 50))
-
-				/*surface.SetMaterial(Material("cah/exit256.png"))
-				surface.SetDrawColor(Color(255, 255, 255, 255))
-				surface.DrawTexturedRectRotated(1200, 400, 128, 128, 0)*/
-
-				-- Decks --
-				for seatID, client in pairs(cahGame:GetPlayers()) do
-					if (seatID == 1 or seatID == 3) then
-						for cardKey, cardID in pairs(client:GetCards()) do
-							local x, y = CARDS_ORIGIN[seatID].x + cardKey * 200, CARDS_ORIGIN[seatID].y
-							CAH:DrawCard(cardID, x, y, client != LocalPlayer(), false)
-						end
-					end
-				end
-
-				-- Black Card --
-				if (cahGame:GetBlackCard() and cursor.r == 0) then
-					local flipped = cahGame:GetStatus() < CAH_DISCOVER
-					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped, false)
-				end
-			cam.End3D2D()
-
 			-- Reversed 3D2D Context --
 			local anglesR = cahTable:GetAngles()
 			anglesR:RotateAroundAxis(anglesR:Up(), -90)
 			cam.Start3D2D(cahTable:LocalToWorld(cahTable.originR), anglesR, SCALE)
-				local cursor = CAH:GetCursor(cahTable, angles)
-				surface.SetDrawColor(Color(255, 0, 0))
+				--[[surface.SetDrawColor(Color(255, 0, 0))
 				surface.DrawLine(0, 0, 100, 0)
 				surface.SetDrawColor(Color(0, 255, 0))
-				surface.DrawLine(0, 0, 0, 100)
+				surface.DrawLine(0, 0, 0, 100)]]
 
 				-- Decks --
 				for seatID, client in pairs(cahGame:GetPlayers()) do
 					if (seatID == 2 or seatID == 4) then
 						for cardKey, cardID in pairs(client:GetCards()) do
 							local x, y = CARDS_ORIGIN[seatID].x + cardKey * 200, CARDS_ORIGIN[seatID].y
-							CAH:DrawCard(cardID, x, y, client != LocalPlayer(), true)
+							CAH:DrawCard(cardID, x, y, client != ply, true)
 						end
 					end
 				end
@@ -119,20 +94,46 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 				end
 			cam.End3D2D()
 
-			-- Cursor 3D2D Context --
+			-- Main 3D2D Context --
 			cam.Start3D2D(cahTable:LocalToWorld(cahTable.origin), angles, SCALE)
-				if (cursor) then
+				--[[surface.SetDrawColor(Color(255, 0, 0))
+				surface.DrawLine(0, 0, 100, 0)
+				surface.SetDrawColor(Color(0, 255, 0))
+				surface.DrawLine(0, 0, 0, 100)]]
+				--draw.RoundedBox(0, 0, 0, TABLE_WIDTH, TABLE_HEIGHT, Color(255, 255, 255, 50))
+
+				/*surface.SetMaterial(Material("cah/exit256.png"))
+				surface.SetDrawColor(Color(255, 255, 255, 255))
+				surface.DrawTexturedRectRotated(1200, 400, 128, 128, 0)*/
+
+				-- Decks --
+				for seatID, client in pairs(cahGame:GetPlayers()) do
+					if (seatID == 1 or seatID == 3) then
+						for cardKey, cardID in pairs(client:GetCards()) do
+							local x, y = CARDS_ORIGIN[seatID].x + cardKey * 200, CARDS_ORIGIN[seatID].y
+							CAH:DrawCard(cardID, x, y, client != ply, false)
+						end
+					end
+				end
+
+				-- Black Card --
+				if (cahGame:GetBlackCard() and cursor.r == 0) then
+					local flipped = cahGame:GetStatus() < CAH_DISCOVER
+					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped, false)
+				end
+
+				-- Cursor --
+				if (cursor.x != -1 and cursor.y != -1) then
 					local offX, offY = 9, 25
 
 					if (cursor.r == 180) then
 						offX, offY = -9, -25
 					end
 
-					surface.SetMaterial(Material("cah/hand64.png"))
-					surface.SetDrawColor(Color(220, 220, 220, 255))
+					surface.SetMaterial(handMat)
+					surface.SetDrawColor(cursorColor)
 					surface.DrawTexturedRectRotated(cursor.x + offX, cursor.y + offY, 64, 64, cursor.r)
 				end
-				--LocalPlayer():ChatPrint("X = "..cursor.x..", Y = "..cursor.y)
 			cam.End3D2D()
 		end
 	end
@@ -140,38 +141,39 @@ end)
 
 -- CAH Cursor Position Generator --
 function CAH:GetCursor( cahTable, angles )
-	local chairID = LocalPlayer():GetVehicle():GetNWInt("CAH_ChairID")
-	if (LocalPlayer():InVehicle() and chairID) then
-		local hitPos = util.IntersectRayWithPlane(LocalPlayer():EyePos(), gui.ScreenToVector(ScrW()/2, ScrH()/2), cahTable:LocalToWorld(cahTable.origin), angles:Up())
+	local chairID = ply:GetVehicle():GetNWInt("CAH_ChairID")
+	local cursorData = {x = -1, y = -1, r = 0}
+
+	if (ply:InVehicle() and chairID) then
+		local hitPos = util.IntersectRayWithPlane(ply:EyePos(), gui.ScreenToVector(ScrW()/2, ScrH()/2), cahTable:LocalToWorld(cahTable.origin), angles:Up())
+
+		if (chairID == 2 or chairID == 4) then
+			cursorData.r = 180
+		end
 
 		if (hitPos) then
 			local offset = hitPos - cahTable:LocalToWorld(cahTable.origin)
-			offset:Rotate(Angle(0, -angles.y, 0))
-			offset:Rotate(Angle(-angles.p, 0, 0))
-			offset:Rotate(Angle(0, 0, -angles.r))
+			offset:Rotate(Angle(-angles.p, -angles.y, -angles.r))
 
-			local x, y = offset.x * (1 / SCALE), -(offset.y * (1 / SCALE))
-			local rotate = 0
+			cursorData.x, cursorData.y = offset.x * (1 / SCALE), -(offset.y * (1 / SCALE))
+		end
 
-			if (chairID == 2 or chairID == 4) then
-				rotate = 180
-			end
-
-			if (x <= TABLE_WIDTH and x >= 0 and y <= TABLE_HEIGHT and y >= 0) then
-				return {x = x, y = y, r = rotate}
-			end
+		if (cursorData.x >= TABLE_WIDTH or cursorData.x <= 0 or cursorData.y >= TABLE_HEIGHT or cursorData.y <= 0) then
+			cursorData.x, cursorData.y = -1, -1
 		end
 	end
+
+	return cursorData
 end
 
 -- CAH Cards Drawer --
 function CAH:DrawCard( cardID, x, y, flipped, rotateText )
 	local textColor = "0,0,0"
-	local cardColor = Color(255, 255, 255)
+	local cardColor = color_white
 
 	if (CAH:GetCard(cardID):IsQuestion()) then
 		textColor = "255,255,255"
-		cardColor = Color(0, 0, 0)
+		cardColor = color_black
 	end
 
 	if (not self.markupBuffer[cardID]) then
@@ -188,12 +190,6 @@ function CAH:DrawCard( cardID, x, y, flipped, rotateText )
 	end
 
 	draw.RoundedBox(8, x, y, 185, 256, cardColor)
-
-	local textX, textY = x, y
-	if (rotateText) then
-		textX, textY = TABLE_WIDTH - x, TABLE_HEIGHT - y
-	end
-
 	currentMarkup:Draw(x + 10, y + 10, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
 end
 
@@ -206,6 +202,10 @@ end
 netstream.Hook("CAH_Game", function( cahGame )
 	setmetatable(cahGame, CAH.gameMeta)
 	CAH:GetGames()[cahGame.table] = cahGame
+end)
+
+netstream.Hook("CAH_GameDel", function( gameIndex )
+	CAH:GetGames()[gameIndex] = nil
 end)
 
 netstream.Hook("CAH_Players", function( playerData )
