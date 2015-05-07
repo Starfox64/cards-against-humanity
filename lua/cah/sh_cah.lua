@@ -9,6 +9,7 @@ CAH_IDLE = 0
 CAH_DISCOVER = 1
 CAH_ANSWER = 2
 CAH_CHOOSE = 3
+CAH_END = 4
 
 
 -- CAH Utils --
@@ -154,7 +155,7 @@ if (SERVER) then
 		end
 
 		self:GenerateCards()
-		self:Send()
+		self:Send(true)
 	end
 
 	function CAH.gameMeta:GenerateCards()
@@ -175,14 +176,38 @@ if (SERVER) then
 		self.czar = czar
 	end
 
-	function CAH.gameMeta:Send( target )
-		netstream.Start(target, "CAH_Game", self)
+	function CAH.gameMeta:SetStatus( status )
+		self.status = status
+	end
 
-		local playerData = {}
-		for k, client in pairs(self:GetPlayers()) do
-			playerData[client] = client.CAH
+	function CAH.gameMeta:Send( sendPlayers, target )
+		local clGame = table.Copy(self)
+		clGame.wPool, clGame.bPool = nil, nil -- The client doesn't need the pools
+
+		netstream.Start(target, "CAH_UpdateGameData", clGame)
+
+		if (sendPlayers) then
+			local playerData = {}
+			for k, client in pairs(self:GetPlayers()) do
+				playerData[client] = client.CAH
+			end
+			netstream.Start(target, "CAH_UpdatePlayerData", playerData)
 		end
-		netstream.Start(target, "CAH_Players", playerData)
+	end
+
+else
+
+	-- returns: flipped, shifted
+	function CAH.gameMeta:ShouldDrawCard( cardID, owner )
+		if (self:GetStatus() < CAH_CHOOSE and owner:IsSelectedCard(cardID)) then
+			return true, true
+		elseif (self:GetStatus() >= CAH_CHOOSE and owner:IsSelectedCard(cardID)) then
+			return false, true
+		elseif (not owner:IsSelectedCard(cardID) and owner == LocalPlayer()) then
+			return false, false
+		end
+
+		return false, false
 	end
 
 end
@@ -220,12 +245,22 @@ function CAH.playerMeta:GetCAHPoints()
 	return self.CAH.ap
 end
 
+function CAH.playerMeta:IsSelectedCard( cardID )
+	if not (self.CAH) then return end
+	return self.CAH.selected[1] == cardID or self.CAH.selected[2] == cardID
+end
+
 if (SERVER) then
 
 	function CAH.playerMeta:SetCAHGame( cahGame )
 		if (IsValid(cahGame)) then
 			self.CAH.game = cahGame:GetID()
 		end
+	end
+
+	function CAH.playerMeta:SelectCard( cardID1, cardID2 )
+		if not (self.CAH) then return end
+		self.CAH.selected = {cardID1, cardID2}
 	end
 
 	function CAH.playerMeta:SetCAHPoints( points )
