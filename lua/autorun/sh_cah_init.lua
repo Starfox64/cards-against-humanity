@@ -7,6 +7,8 @@ if (SERVER) then
 	AddCSLuaFile("cah/sh_cah.lua")
 
 	AddCSLuaFile("cah/vgui/cl_notification.lua")
+	AddCSLuaFile("cah/vgui/cl_card.lua")
+	AddCSLuaFile("cah/vgui/cl_settings.lua")
 
 	AddCSLuaFile("external/von.lua")
 	AddCSLuaFile("external/netstream.lua")
@@ -25,6 +27,8 @@ else
 	include("cah/cl_cah.lua")
 
 	include("cah/vgui/cl_notification.lua")
+	include("cah/vgui/cl_card.lua")
+	include("cah/vgui/cl_settings.lua")
 end
 
 MsgC(Color(251, 184, 41), "[CAH] Cards Against Humanity Initialized!\n")

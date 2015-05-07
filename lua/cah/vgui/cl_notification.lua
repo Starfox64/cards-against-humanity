@@ -16,9 +16,6 @@ function PANEL:Paint( w, h )
 		{x = 10, y = h / 1.5}
 	}
 
-	surface.SetFont("CAH_NotificationFont")
-	local textW, textH = surface.GetTextSize(self.text)
-
 	surface.DisableClipping(true)
 
 	surface.SetDrawColor(Color(68, 142, 253))
@@ -29,8 +26,9 @@ function PANEL:Paint( w, h )
 	surface.SetMaterial(self.iconMat)
 	surface.DrawTexturedRect(35, 0, h, h)
 
-	surface.DrawRect(110, 0, textW + 40, h)
+	surface.DrawRect(110, 0, w - 110, h)
 
+	surface.SetFont("CAH_NotificationFont")
 	surface.SetTextColor(Color(68, 68, 68))
 	surface.SetTextPos(130, 13)
 	surface.DrawText(self.text)

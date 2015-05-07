@@ -1,5 +1,6 @@
 CAH.Cards = CAH.Cards or {}
 CAH.Games = CAH.Games or {}
+CAH.CVAR = CAH.CVAR or {}
 CAH.Ready = false
 
 CAH.CardsURL = "https://raw.githubusercontent.com/Starfox64/cards-against-humanity/master/cah.json"
@@ -147,7 +148,8 @@ if (SERVER) then
 				client.CAH = {
 					gameID = self.table,
 					ap = 0,
-					cards = {}
+					cards = {},
+					selected = {}
 				}
 
 				break
@@ -271,6 +273,10 @@ if (SERVER) then
 	function CAH.playerMeta:AddCAHPoints( points )
 		if not (self.CAH) then return end
 		self.CAH.ap = self.CAH.ap + points
+	end
+
+	function CAH.playerMeta:CAHNotification( message, icon, noSound )
+		netstream.Start(self, "CAH_Notification", {m = message, i = icon, ns = noSound})
 	end
 
 end

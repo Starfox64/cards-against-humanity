@@ -4,9 +4,9 @@ CAH.canClick = CAH.canClick or true
 CAH.notifications = CAH.notifications or {}
 
 -- CAH ConVars --
-CAH.CVAR = {}
 CAH.CVAR.playsound = CreateClientConVar("cah_playsound", 1, true)
 CAH.CVAR.notiftime = CreateClientConVar("cah_notiftime", 10, true)
+CAH.CVAR.cardtime = CreateClientConVar("cah_cardtime", 5, true)
 
 
 -- CAH Constants --
@@ -99,7 +99,7 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 							if (client == ply) then
 								CAH:AddClickPos(TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "draw", cardID)
 							end
-							CAH:AddClickPos(TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", cardID)
+							CAH:AddClickPos(TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cardID, flipped = flipped})
 						end
 					end
 				end
@@ -135,7 +135,7 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 							if (client == ply) then
 								CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "draw", cardID)
 							end
-							CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", cardID)
+							CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cardID, flipped = flipped})
 						end
 					end
 				end
@@ -230,6 +230,7 @@ function CAH:DrawCard( cardID, x, y, flipped, rotateText )
 	end
 end
 
+-- Adds a clickable square to the current table.
 function CAH:AddClickPos( x, y, w, h, key, action, arg )
 	local clickPosData = {
 		x = x,
@@ -244,6 +245,7 @@ function CAH:AddClickPos( x, y, w, h, key, action, arg )
 	table.insert(self.clickPos, clickPosData)
 end
 
+-- Checks if the cursor is within a clickable square while M1/2 are down.
 function CAH:CheckClickPos( cursor )
 	if (LocalPlayer():KeyDown(IN_ATTACK) or LocalPlayer():KeyDown(IN_ATTACK2)) then
 		if (CAH.canClick) then
@@ -257,8 +259,7 @@ function CAH:CheckClickPos( cursor )
 						elseif (clickPos.action == "quit") then
 							netstream.Start("CAH_Quit")
 						elseif (clickPos.action == "preview") then
-							LocalPlayer():ChatPrint("Card: "..CAH:GetCard(clickPos.arg):GetText())
-							-- VGUI Stuff
+							self:PreviewCard(clickPos.arg.cardID, clickPos.arg.flipped)
 						end
 					end
 				end
@@ -271,6 +272,7 @@ function CAH:CheckClickPos( cursor )
 	end
 end
 
+-- Draws and animates CAH notifications.
 function CAH:Notify( message, icon, noSound )
 	icon = icon or "cah/bell64.png"
 
@@ -306,6 +308,35 @@ function CAH:Notify( message, icon, noSound )
 	end
 end
 
+-- Draws and animates a preview card on the HUD.
+function CAH:PreviewCard( cardID, flipped )
+	local SCREEN_X, SCREEN_Y = ScrW() / 1920, ScrH() / 1080
+
+	local function newCard()
+		CAH.previewCard = vgui.Create("CAH_Card")
+		CAH.previewCard:SetAlpha(0)
+		CAH.previewCard:SetCard(cardID, flipped)
+		CAH.previewCard:SetSize(CARD_WIDTH, CARD_HEIGHT)
+		CAH.previewCard:SetPos(SCREEN_X * 1500, SCREEN_Y * 1090)
+
+		CAH.previewCard:MoveTo(SCREEN_X * 1500, SCREEN_Y * 1090 - CAH.previewCard:GetTall(), 0.3, 0, 5)
+		CAH.previewCard:AlphaTo(255, 0.3)
+
+		CAH.previewCard:AlphaTo(0, 1, 0.3 + self.CVAR.cardtime:GetInt(), function( animData, panel )
+			panel:Remove()
+		end)
+	end
+
+	if (IsValid(CAH.previewCard)) then
+		CAH.previewCard:AlphaTo(0, 0.3, 0, function( animData, panel )
+			panel:Remove()
+			newCard()
+		end)
+	else
+		newCard()
+	end
+end
+
 
 -- CAH Netstream Hooks --
 netstream.Hook("CAH_UpdateGameData", function( cahGame )
@@ -317,4 +348,8 @@ netstream.Hook("CAH_UpdatePlayerData", function( playerData )
 	for ply, data in pairs(playerData) do
 		ply.CAH = data
 	end
+end)
+
+netstream.Hook("CAH_Notification", function( data )
+	CAH:Notify(data.m, data.i, data.ns)
 end)
