@@ -209,7 +209,7 @@ else
 			return false, false
 		end
 
-		return false, false
+		return true, false
 	end
 
 end

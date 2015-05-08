@@ -24,8 +24,16 @@ local CARDS_ORIGIN = {
 	{x = -100, y = 670}
 }
 
+local EXIT_ORIGIN = {
+	{x = 1280, y = 800},
+	{x = 1280, y = 160},
+	{x = 1280, y = 800},
+	{x = 1280, y = 160}
+}
+
 local handMat = Material("cah/hand64.png")
 local circleMat = Material("cah/circle64.png")
+local exitMat = Material("cah/exit256.png")
 local cursorColor = Color(220, 220, 220, 255)
 
 CAH.playerColors = {
@@ -93,7 +101,7 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 								y = y - 270
 							end
 
-							CAH:DrawCard(cardID, x, y, flipped, true)
+							CAH:DrawCard(cardID, x, y, flipped)
 
 							-- "TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT" is to convert the Reversed 3D2D position to the Main 3D2D position.
 							if (client == ply) then
@@ -107,17 +115,13 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 				-- Black Card --
 				if (cahGame:GetBlackCard() and cursor.r == 180) then
 					local flipped = cahGame:GetStatus() < CAH_DISCOVER
-					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped, true)
+					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped)
 				end
 			cam.End3D2D()
 
 			-- Main 3D2D Context --
 			cam.Start3D2D(cahTable:LocalToWorld(cahTable.origin), angles, SCALE)
 				--draw.RoundedBox(0, 0, 0, TABLE_WIDTH, TABLE_HEIGHT, Color(255, 255, 255, 50))
-
-				--[[surface.SetMaterial(Material("cah/exit256.png"))
-				surface.SetDrawColor(Color(255, 255, 255, 255))
-				surface.DrawTexturedRectRotated(1200, 400, 128, 128, 0)]]
 
 				-- Decks --
 				for seatID, client in pairs(cahGame:GetPlayers()) do
@@ -130,7 +134,7 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 								y = y - 270
 							end
 
-							CAH:DrawCard(cardID, x, y, flipped, false)
+							CAH:DrawCard(cardID, x, y, flipped)
 
 							if (client == ply) then
 								CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "draw", cardID)
@@ -138,12 +142,21 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 							CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cardID, flipped = flipped})
 						end
 					end
+
+					if (client == ply) then
+						surface.SetMaterial(exitMat)
+						surface.SetDrawColor(Color(35, 31, 32, 255))
+						surface.DrawTexturedRectRotated(EXIT_ORIGIN[seatID].x, EXIT_ORIGIN[seatID].y, 200, 200, cursor.r)
+
+						CAH:AddClickPos(EXIT_ORIGIN[seatID].x - 100, EXIT_ORIGIN[seatID].y - 100, 200, 200, IN_ATTACK, "quit")
+					end
 				end
 
 				-- Black Card --
 				if (cahGame:GetBlackCard() and cursor.r == 0) then
 					local flipped = cahGame:GetStatus() < CAH_DISCOVER
-					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped, false)
+					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped)
+					CAH:AddClickPos(1164, 350, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cahGame:GetBlackCard(), flipped = flipped})
 				end
 
 				-- Cursor --
@@ -168,10 +181,10 @@ end)
 -- CAH Cursor Position Generator --
 function CAH:GetCursor( cahTable, angles )
 	local ply = LocalPlayer()
-	local chairID = ply:GetVehicle():GetNWInt("CAH_ChairID")
 	local cursorData = {x = -1, y = -1, r = 0}
 
-	if (ply:InVehicle() and chairID) then
+	if (ply:InVehicle() and ply:GetVehicle():GetNWInt("CAH_ChairID")) then
+		local chairID = ply:GetVehicle():GetNWInt("CAH_ChairID")
 		local hitPos = util.IntersectRayWithPlane(ply:EyePos(), gui.ScreenToVector(ScrW()/2, ScrH()/2), cahTable:LocalToWorld(cahTable.origin), angles:Up())
 
 		if (chairID == 2 or chairID == 4) then
@@ -193,8 +206,8 @@ function CAH:GetCursor( cahTable, angles )
 	return cursorData
 end
 
--- CAH Cards Drawer --
-function CAH:DrawCard( cardID, x, y, flipped, rotateText )
+-- Draws a card using the cardID
+function CAH:DrawCard( cardID, x, y, flipped )
 	local card = CAH:GetCard(cardID)
 	local textColor = "0,0,0"
 	local cardColor = color_white
@@ -257,7 +270,9 @@ function CAH:CheckClickPos( cursor )
 						elseif (clickPos.action == "choose") then
 							netstream.Start("CAH_ChooseCard", clickPos.arg)
 						elseif (clickPos.action == "quit") then
-							netstream.Start("CAH_Quit")
+							CAH:DermaQuery("Confirmation...", "Are you already sick of being a horrible person?", function()
+								netstream.Start("CAH_Quit")
+							end)
 						elseif (clickPos.action == "preview") then
 							self:PreviewCard(clickPos.arg.cardID, clickPos.arg.flipped)
 						end

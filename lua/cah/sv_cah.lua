@@ -4,6 +4,9 @@ resource.AddFile("materials/models/props_interiors/table_picnic.vmt")
 
 CAH.expansions = CAH.expansions or {"Base"}
 
+-- Server ConVars --
+CAH.CVAR.maxpoints = CreateConVar("cah_maxpoints", 5, bit.bor(FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_SERVER_CAN_EXECUTE))
+
 function CAH:AddTable( cahTable )
 	if self.Ready then
 		local wPool, bPool = CAH:GeneratePool(self.expansions)
@@ -22,8 +25,8 @@ function CAH:AddTable( cahTable )
 		self.Games[cahTable:EntIndex()] = cahGame
 		cahGame:Send()
 	else
-		-- Notify, server not ready
-		print("Cards not loaded!")
+		-- Change icon
+		CAH:Notify("Cannot create CAH Table, cards not loaded!")
 	end
 end
 
@@ -44,4 +47,8 @@ function CAH:GeneratePool( expansions )
 	end
 
 	return wPool, bPool
+end
+
+function CAH:Notify( message, icon, noSound )
+	netstream.Start(nil, "CAH_Notification", {m = message, i = icon, ns = noSound})
 end

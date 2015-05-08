@@ -1,11 +1,11 @@
 local PANEL = {}
 
 function PANEL:Init()
-	self.text = 1
+	self.cardID = 1
 end
 
 function PANEL:Paint( w, h )
-	CAH:DrawCard(self.cardID, 0, 0, self.flipped, false)
+	CAH:DrawCard(self.cardID, 0, 0, self.flipped)
 end
 
 function PANEL:SetCard( cardID, flipped )
