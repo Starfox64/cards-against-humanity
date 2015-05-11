@@ -14,13 +14,6 @@ CAH_END = 4
 
 
 -- CAH Utils --
-CAH.htmlEntities = {
-	["&trade;"] = "™",
-	["&copy;"] = "©",
-	["&reg;"] = "®",
-	["&Uuml;"] = "Ü"
-}
-
 function CAH:LoadCards()
 	http.Fetch(CAH.CardsURL,
 		function( body, len, headers, code )
@@ -31,10 +24,7 @@ function CAH:LoadCards()
 				self.Cards = {}
 
 				for _, card in pairs(cards) do
-					local text = card.text
-					for entity, replacement in pairs(self.htmlEntities) do
-						text = string.Replace(text, entity, replacement)
-					end
+					local text = htmlentities.convertEntities(card.text)
 
 					self.Cards[card.id] = {
 						cardType = card.cardType,

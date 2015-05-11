@@ -12,6 +12,7 @@ if (SERVER) then
 
 	AddCSLuaFile("external/von.lua")
 	AddCSLuaFile("external/netstream.lua")
+	AddCSLuaFile("external/htmlentities.lua")
 
 	include("external/von.lua")
 	include("external/netstream.lua")
@@ -22,6 +23,7 @@ if (SERVER) then
 else
 	include("external/von.lua")
 	include("external/netstream.lua")
+	include("external/htmlentities.lua")
 
 	include("cah/sh_cah.lua")
 	include("cah/cl_cah.lua")
