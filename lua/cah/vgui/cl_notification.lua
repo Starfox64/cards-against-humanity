@@ -28,7 +28,7 @@ function PANEL:Paint( w, h )
 
 	surface.DrawRect(110, 0, w - 110, h)
 
-	surface.SetFont("CAH_NotificationFont")
+	surface.SetFont("CAH_TitleFont")
 	surface.SetTextColor(Color(68, 68, 68))
 	surface.SetTextPos(130, 13)
 	surface.DrawText(self.text)
@@ -37,7 +37,7 @@ function PANEL:Paint( w, h )
 end
 
 function PANEL:GetWide()
-	surface.SetFont("CAH_NotificationFont")
+	surface.SetFont("CAH_TitleFont")
 	local textW, textH = surface.GetTextSize(self.text)
 
 	return 150 + textW

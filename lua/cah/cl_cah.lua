@@ -59,13 +59,33 @@ surface.CreateFont("CAH_CardBackFont", {
 	antialias = false
 })
 
-surface.CreateFont("CAH_NotificationFont", {
+surface.CreateFont("CAH_TitleFont", {
 	font = "Lato",
-	size = 22,
+	size = ScreenScale(7.333),
 	weight = 500,
 	antialias = true
 })
 
+surface.CreateFont("CAH_TextFont", {
+	font = "Lato",
+	size = ScreenScale(6),
+	weight = 500,
+	antialias = true
+})
+
+surface.CreateFont("CAH_HUDBold", {
+	font = "Oleo Script",
+	size = ScreenScale(16),
+	weight = 1000,
+	antialias = true
+})
+
+surface.CreateFont("CAH_HUDSmall", {
+	font = "Oleo Script",
+	size = ScreenScale(14),
+	weight = 1000,
+	antialias = true
+})
 
 -- CAH Back sides --
 local WHITE_FLIPPED = markup.Parse("<color=255,255,255><font=CAH_CardBackFont>Cards Against Humanity</font></color>", 180)
@@ -178,12 +198,42 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 	end
 end)
 
+hook.Add("HUDPaint", "CAH_HUDPaint", function()
+	local ply = LocalPlayer()
+	if (ply:InVehicle() and ply:GetVehicle():GetNWInt("CAH_ChairID") > 0) then
+		local cahGame = ply:GetCAHGame()
+
+		if (IsValid(cahGame)) then
+			local SCREEN_X, SCREEN_Y = ScrW() / 1920, ScrH() / 1080
+
+			for seatID, client in pairs(cahGame:GetPlayers()) do
+				local drawPos = (client:GetPos() + Vector(0, 0, 50)):ToScreen()
+				local color = CAH.playerColors[seatID]
+
+				draw.SimpleTextOutlined(client:Name(), "CAH_HUDBold", drawPos.x, drawPos.y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, color_white)
+
+				surface.SetFont("CAH_HUDBold")
+				local textW = surface.GetTextSize(client:Name())
+
+				draw.RoundedBox(0, drawPos.x - textW / 2 - SCREEN_X * 10 - 1, drawPos.y + SCREEN_X * 50 - 1, textW + SCREEN_X * 20 + 2, SCREEN_Y * 5 + 2, color_white)
+				draw.RoundedBox(0, drawPos.x - textW / 2 - SCREEN_X * 10, drawPos.y + SCREEN_X * 50, textW + SCREEN_X * 20, SCREEN_Y * 5, color)
+
+				draw.SimpleTextOutlined(client:GetCAHPoints().." AP", "CAH_HUDSmall", drawPos.x, drawPos.y + SCREEN_Y * 60, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, color_white)
+
+				if (cahGame:GetCzar() == client) then
+					draw.SimpleTextOutlined("Card Czar", "CAH_HUDSmall", drawPos.x, drawPos.y + SCREEN_Y * 90, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, color_white)
+				end
+			end
+		end
+	end
+end)
+
 -- CAH Cursor Position Generator --
 function CAH:GetCursor( cahTable, angles )
 	local ply = LocalPlayer()
 	local cursorData = {x = -1, y = -1, r = 0}
 
-	if (ply:InVehicle() and ply:GetVehicle():GetNWInt("CAH_ChairID")) then
+	if (ply:InVehicle() and ply:GetVehicle():GetNWInt("CAH_ChairID") > 0) then
 		local chairID = ply:GetVehicle():GetNWInt("CAH_ChairID")
 		local hitPos = util.IntersectRayWithPlane(ply:EyePos(), gui.ScreenToVector(ScrW()/2, ScrH()/2), cahTable:LocalToWorld(cahTable.origin), angles:Up())
 
@@ -270,7 +320,7 @@ function CAH:CheckClickPos( cursor )
 						elseif (clickPos.action == "choose") then
 							netstream.Start("CAH_ChooseCard", clickPos.arg)
 						elseif (clickPos.action == "quit") then
-							CAH:DermaQuery("Confirmation...", "Are you already sick of being a horrible person?", function()
+							CAH:DermaQuery("Confirmation...", "Are you already sick of being a horrible person?", nil, function()
 								netstream.Start("CAH_Quit")
 							end)
 						elseif (clickPos.action == "preview") then
@@ -350,6 +400,17 @@ function CAH:PreviewCard( cardID, flipped )
 	else
 		newCard()
 	end
+end
+
+-- Shows a Y/N VGUI
+function CAH:DermaQuery( title, message, icon, funcY, funcN )
+	icon = icon or "cah/bell64.png"
+
+	local query = vgui.Create("CAH_Query")
+	query:SetTitle(title)
+	query:SetText(message)
+	query:SetIcon(icon)
+	query:Center()
 end
 
 

@@ -1,4 +1,4 @@
-CAH = {}
+CAH = CAH or {}
 
 MsgC(Color(251, 184, 41), "[CAH] Initializing Cards Against Humanity...\n")
 
@@ -6,9 +6,9 @@ if (SERVER) then
 	AddCSLuaFile("cah/cl_cah.lua")
 	AddCSLuaFile("cah/sh_cah.lua")
 
-	AddCSLuaFile("cah/vgui/cl_notification.lua")
-	AddCSLuaFile("cah/vgui/cl_card.lua")
-	AddCSLuaFile("cah/vgui/cl_settings.lua")
+	for _, file in pairs(file.Find("cah/vgui/*.lua", "LUA")) do
+		AddCSLuaFile("cah/vgui/"..file)
+	end
 
 	AddCSLuaFile("external/von.lua")
 	AddCSLuaFile("external/netstream.lua")
@@ -26,9 +26,9 @@ else
 	include("cah/sh_cah.lua")
 	include("cah/cl_cah.lua")
 
-	include("cah/vgui/cl_notification.lua")
-	include("cah/vgui/cl_card.lua")
-	include("cah/vgui/cl_settings.lua")
+	for _, file in pairs(file.Find("cah/vgui/*.lua", "LUA")) do
+		include("cah/vgui/"..file)
+	end
 end
 
 MsgC(Color(251, 184, 41), "[CAH] Cards Against Humanity Initialized!\n")

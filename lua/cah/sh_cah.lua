@@ -1,7 +1,7 @@
 CAH.Cards = CAH.Cards or {}
 CAH.Games = CAH.Games or {}
 CAH.CVAR = CAH.CVAR or {}
-CAH.Ready = false
+CAH.Ready = CAH.Ready or false
 
 CAH.CardsURL = "https://raw.githubusercontent.com/Starfox64/cards-against-humanity/master/cah.json"
 
@@ -14,6 +14,13 @@ CAH_END = 4
 
 
 -- CAH Utils --
+CAH.htmlEntities = {
+	["&trade;"] = "™",
+	["&copy;"] = "©",
+	["&reg;"] = "®",
+	["&Uuml;"] = "Ü"
+}
+
 function CAH:LoadCards()
 	http.Fetch(CAH.CardsURL,
 		function( body, len, headers, code )
@@ -24,9 +31,10 @@ function CAH:LoadCards()
 				self.Cards = {}
 
 				for _, card in pairs(cards) do
-					local text = string.Replace(card.text, "&trade;", "™")
-					text = string.Replace(text, "&copy;", "©")
-					text = string.Replace(text, "&reg;", "®")
+					local text = card.text
+					for entity, replacement in pairs(self.htmlEntities) do
+						text = string.Replace(text, entity, replacement)
+					end
 
 					self.Cards[card.id] = {
 						cardType = card.cardType,
@@ -252,11 +260,16 @@ function CAH.playerMeta:IsSelectedCard( cardID )
 	return self.CAH.selected[1] == cardID or self.CAH.selected[2] == cardID
 end
 
+function CAH.playerMeta:GetCAHGame()
+	if not (self.CAH) then return end
+	return CAH:GetGame(self.CAH.gameID)
+end
+
 if (SERVER) then
 
 	function CAH.playerMeta:SetCAHGame( cahGame )
 		if (IsValid(cahGame)) then
-			self.CAH.game = cahGame:GetID()
+			self.CAH.game = cahGame:GetTable():EntIndex()
 		end
 	end
 
