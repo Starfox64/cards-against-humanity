@@ -114,11 +114,22 @@ htmlentities.entities = {
 	@arg1-> string to process
 	@return-> processed string
 ]]--
-function htmlentities.convertEntities( text )
+function htmlentities.toString( text )
 	for replacement, entity in pairs(htmlentities.entities) do
-		for entity, replacement in pairs(self.htmlEntities) do
-			text = string.Replace(text, entity, replacement)
-		end
+		text = string.Replace(text, entity, replacement)
+	end
+
+	return text
+end
+
+--[[
+	Converts symbols into HTML Entities.
+	@arg1-> string to process
+	@return-> processed string
+]]--
+function htmlentities.toHTML( text )
+	for replacement, entity in pairs(htmlentities.entities) do
+		text = string.Replace(text, replacement, entity)
 	end
 
 	return text
