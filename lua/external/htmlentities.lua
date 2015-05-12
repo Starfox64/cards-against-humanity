@@ -109,28 +109,30 @@ htmlentities.entities = {
 	["&"] = "&amp;"
 }
 
+htmlentities.entsToSymbols = {}
+
+for symbol, ent in pairs( htmlentities.entities ) do
+	htmlentities.entsToSymbols[ ent ] = symbol
+end
+
 --[[
 	Converts HTML Entities into their proper symbol.
 	@arg1-> string to process
 	@return-> processed string
 ]]--
-function htmlentities.toString( text )
-	for replacement, entity in pairs(htmlentities.entities) do
-		text = string.Replace(text, entity, replacement)
-	end
-
-	return text
+function htmlentities.encode( text )
+	return (string.gsub( text, ".", htmlentities.entities ))
 end
 
 --[[
-	Converts symbols into HTML Entities.
+	Converts text into properly encoded HTML Entities.
 	@arg1-> string to process
 	@return-> processed string
 ]]--
-function htmlentities.toHTML( text )
-	for replacement, entity in pairs(htmlentities.entities) do
-		text = string.Replace(text, replacement, entity)
-	end
-
-	return text
+function htmlentities.decode( text )
+	return (string.gsub( text, "&.-;", function(ent)
+		if htmlentities.entsToSymbols[ent] then
+			return htmlentities.entsToSymbols[ent]
+		end
+	end))
 end

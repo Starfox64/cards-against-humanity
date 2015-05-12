@@ -24,7 +24,7 @@ function CAH:LoadCards()
 				self.Cards = {}
 
 				for _, card in pairs(cards) do
-					local text = htmlentities.toString(card.text)
+					local text = htmlentities.decode(card.text)
 
 					self.Cards[card.id] = {
 						cardType = card.cardType,
