@@ -106,11 +106,15 @@ CAH.gameMeta = {}
 CAH.gameMeta.__index = CAH.gameMeta
 
 function CAH.gameMeta:IsValid()
-	return true
+	return IsValid(self:GetTable())
 end
 
 function CAH.gameMeta:GetStatus()
 	return self.status
+end
+
+function CAH.gameMeta:GetTimeLeft()
+	return self.endTime - CurTime()
 end
 
 function CAH.gameMeta:GetTable()
@@ -133,6 +137,16 @@ if (SERVER) then
 
 	function CAH.gameMeta:RemovePlayer( client )
 		table.RemoveByValue(self.players, client)
+		client:ExitVehicle()
+
+		client.CAH = {
+			gameID = 0,
+			ap = 0,
+			cards = {},
+			selected = {}
+		}
+
+		self:Send(true)
 	end
 
 	function CAH.gameMeta:AddPlayer( client )
@@ -154,7 +168,7 @@ if (SERVER) then
 			end
 		end
 
-		self:GenerateCards()
+		--self:GenerateCards()
 		self:Send(true)
 	end
 
@@ -172,8 +186,59 @@ if (SERVER) then
 		end
 	end
 
+	function CAH.gameMeta:NewRound()
+		self:SetStatus(CAH_DISCOVER)
+		self:GenerateCards()
+		local newCzar = self:FindNewCzar()
+
+		local poolIndex = math.random(1, #self.bPool)
+		self:SetBlackCard(self.bPool[poolIndex])
+		table.remove(self.bPool, poolIndex)
+
+		self:Send(true)
+
+		for _, client in pairs(self:GetPlayer()) do
+			CAH:Notify("A new round is starting, the Card Czar is "..newCzar:Name(), cahGame:GetPlayers())
+		end
+	end
+
+	function CAH.gameMeta:SetTimeLeft( timeLeft )
+		self.endTime = CurTime() + timeLeft
+	end
+
 	function CAH.gameMeta:SetCzar( czar )
 		self.czar = czar
+	end
+
+	function CAH.gameMeta:FindNewCzar()
+		local newCzar, nextIsCzar, reProcess
+
+		for seatID, client in pairs(self:GetPlayers()) do
+			if (client == self) then
+				nextIsCzar = true
+
+				if (seatID == 4) then
+					reProcess = true
+				end
+			elseif (nextIsCzar) then
+				newCzar = client
+				break
+			end
+		end
+
+		if (reProcess) then
+			for _, client in pairs(self:GetPlayers()) do
+				newCzar = client
+			end
+		end
+
+		self:SetCzar(newCzar)
+
+		return newCzar
+	end
+
+	function CAH.gameMeta:SetBlackCard( cardID )
+		self.black = cardID
 	end
 
 	function CAH.gameMeta:SetStatus( status )
@@ -219,20 +284,26 @@ CAH.playerMeta = FindMetaTable("Player")
 function CAH.playerMeta:CanJoinCAH( cahGame )
 	if (IsValid(cahGame)) then
 		if (#cahGame:GetPlayers() < 4) then
+			if (cahGame:GetStatus() != CAH_IDLE) then
+				CAH:Notify("This game already started.", self)
+				return false
+			end
+
 			if (hook.Run("CanJoinCAH", self, cahGame) == false) then
 				return false
 			end
 
 			return true
 		end
+		CAH:Notify("This table is full.", self)
 	end
 
 	return false
 end
 
-function CAH.playerMeta:HasCard( id )
+function CAH.playerMeta:HasCard( cardID )
 	if not (self.CAH) then return false end
-	return table.HasValue(self.CAH.cards, id)
+	return table.HasValue(self.CAH.cards, cardID)
 end
 
 function CAH.playerMeta:GetCards()
@@ -250,6 +321,11 @@ function CAH.playerMeta:IsSelectedCard( cardID )
 	return self.CAH.selected[1] == cardID or self.CAH.selected[2] == cardID
 end
 
+function CAH.playerMeta:GetSelectedCards()
+	if not (self.CAH) then return end
+	return self.CAH.selected
+end
+
 function CAH.playerMeta:GetCAHGame()
 	if not (self.CAH) then return end
 	return CAH:GetGame(self.CAH.gameID)
@@ -263,9 +339,69 @@ if (SERVER) then
 		end
 	end
 
-	function CAH.playerMeta:SelectCard( cardID1, cardID2 )
+	function CAH.playerMeta:DrawCard( cardID )
+		local cahGame = self:GetCAHGame()
+		if (IsValid(cahGame)) then
+			if (cahGame:GetStatus() == CAH_ANSWER) then
+				local maxSelected = 1
+
+				if (CAH:GetCard(cahGame:GetBlackCard()):IsPick2()) then
+					maxSelected = 2
+				end
+
+				if (#self:GetSelectedCards() < maxSelected) then
+					if (self:IsSelectedCard(cardID)) then
+						self:SetSelectedCard(false)
+					elseif (#self:GetSelectedCards() == 1) then
+						self:SetSelectedCard(true, cardID)
+					else
+						self:SetSelectedCard(false, cardID)
+					end
+
+					local playerData = {}
+					playerData[self] = self.CAH
+
+					netstream.Start(nil, "CAH_UpdatePlayerData", playerData)
+				else
+					CAH:Notify("You have already played!", self)
+				end
+			else
+				CAH:Notify("You may not draw a card right now.", self)
+			end
+		end
+	end
+
+	function CAH.playerMeta:ChooseCard( winner )
+		local cahGame = self:GetCAHGame()
+		if (IsValid(cahGame) and IsValid(winner) and winner:IsPlayer() and winner:GetCAHGame() == cahGame) then
+			if (cahGame:GetStatus() == CAH_CHOOSE and cahGame:GetCzar() == self) then
+				winner:AddCAHPoint(1)
+
+				for _, client in pairs(cahGame:GetPlayers()) do
+					for _, cardID in pairs(client:GetSelectedCards()) do
+						table.RemoveByValue(client.CAH.cards, cardID)
+					end
+
+					client.CAH.selected = {}
+				end
+
+				CAH:Notify(winner:Name().." won this round!", "cah/award64.png", cahGame:GetPlayers())
+
+				cahGame:GenerateCards()
+				cahGame:SetStatus(CAH_END)
+				cahGame:SetTimeLeft(5)
+				cahGame:Send(true)
+			else
+				CAH:Notify("You may not choose a winning card now.", self)
+			end
+		end
+	end
+
+	function CAH.playerMeta:SetSelectedCard( isSecond, cardID )
 		if not (self.CAH) then return end
-		self.CAH.selected = {cardID1, cardID2}
+		local index = isSecond and 2 or 1
+
+		self.CAH.selected[index] = cardID
 	end
 
 	function CAH.playerMeta:SetCAHPoints( points )
@@ -276,10 +412,6 @@ if (SERVER) then
 	function CAH.playerMeta:AddCAHPoints( points )
 		if not (self.CAH) then return end
 		self.CAH.ap = self.CAH.ap + points
-	end
-
-	function CAH.playerMeta:CAHNotification( message, icon, noSound )
-		netstream.Start(self, "CAH_Notification", {m = message, i = icon, ns = noSound})
 	end
 
 end

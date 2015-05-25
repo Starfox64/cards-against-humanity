@@ -118,16 +118,22 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 							local flipped, shifted = cahGame:ShouldDrawCard(cardID, client)
 
 							if (shifted) then
-								y = y - 270
+								y = y - 140
 							end
 
 							CAH:DrawCard(cardID, x, y, flipped)
 
-							-- "TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT" is to convert the Reversed 3D2D position to the Main 3D2D position.
-							if (client == ply) then
-								CAH:AddClickPos(TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "draw", cardID)
+							-- This is to convert the Reversed 3D2D position to the Main 3D2D position.
+							local mainX, mainY = TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT
+							if (client == ply and cahGame:GetStatus() == CAH_ANSWER) then
+								CAH:AddClickPos(mainX, mainY, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "draw", cardID)
 							end
-							CAH:AddClickPos(TABLE_WIDTH - x - CARD_WIDTH, TABLE_HEIGHT - y - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cardID, flipped = flipped})
+
+							if (cahGame:GetCzar() == ply and cahGame:GetStatus() == CAH_CHOOSE and client:IsSelectedCard(cardID)) then
+								CAH:AddClickPos(mainX, mainY, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "choose", client)
+							end
+
+							CAH:AddClickPos(mainX, mainY, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cardID, flipped = flipped})
 						end
 					end
 				end
@@ -151,14 +157,19 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 							local flipped, shifted = cahGame:ShouldDrawCard(cardID, client)
 
 							if (shifted) then
-								y = y - 270
+								y = y - 140
 							end
 
 							CAH:DrawCard(cardID, x, y, flipped)
 
-							if (client == ply) then
+							if (client == ply and cahGame:GetStatus() == CAH_ANSWER) then
 								CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "draw", cardID)
 							end
+
+							if (cahGame:GetCzar() == ply and cahGame:GetStatus() == CAH_CHOOSE and client:IsSelectedCard(cardID)) then
+								CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "choose", client)
+							end
+
 							CAH:AddClickPos(x, y, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cardID, flipped = flipped})
 						end
 					end
@@ -410,6 +421,7 @@ function CAH:DermaQuery( title, message, icon, funcY, funcN )
 	query:SetTitle(title)
 	query:SetText(message)
 	query:SetIcon(icon)
+	query:SetFunctions(funcY, funcN)
 	query:Center()
 end
 
