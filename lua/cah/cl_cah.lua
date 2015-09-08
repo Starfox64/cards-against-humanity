@@ -218,6 +218,8 @@ hook.Add("HUDPaint", "CAH_HUDPaint", function()
 			local SCREEN_X, SCREEN_Y = ScrW() / 1920, ScrH() / 1080
 
 			for seatID, client in pairs(cahGame:GetPlayers()) do
+				if (client == ply) then continue end
+
 				local drawPos = (client:GetPos() + Vector(0, 0, 50)):ToScreen()
 				local color = CAH.playerColors[seatID]
 
@@ -234,6 +236,22 @@ hook.Add("HUDPaint", "CAH_HUDPaint", function()
 				if (cahGame:GetCzar() == client) then
 					draw.SimpleTextOutlined("Card Czar", "CAH_HUDSmall", drawPos.x, drawPos.y + SCREEN_Y * 90, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, color_white)
 				end
+			end
+
+			local color = CAH.playerColors[ply:GetVehicle():GetNWInt("CAH_ChairID")]
+
+			draw.SimpleTextOutlined(ply:Name(), "CAH_HUDBold", SCREEN_X * 1900, SCREEN_Y * 540, color, TEXT_ALIGN_RIGHT, TEXT_ALIGN_BOTTOM, 1, color_white)
+
+			surface.SetFont("CAH_HUDBold")
+			local textW = surface.GetTextSize(ply:Name())
+
+			draw.RoundedBox(0, 1900 - textW - SCREEN_X * 10 - 1, 540 + SCREEN_X * 50 - 1, textW + SCREEN_X * 20 + 2, SCREEN_Y * 5 + 2, color_white)
+			draw.RoundedBox(0, 1900 - textW - SCREEN_X * 10, 540 + SCREEN_X * 50, textW + SCREEN_X * 20, SCREEN_Y * 5, color)
+
+			draw.SimpleTextOutlined(ply:GetCAHPoints().." AP", "CAH_HUDSmall", SCREEN_X * 1900, SCREEN_Y * 540 + SCREEN_Y * 60, color, TEXT_ALIGN_RIGHT, TEXT_ALIGN_BOTTOM, 1, color_white)
+
+			if (cahGame:GetCzar() == ply) then
+				draw.SimpleTextOutlined("You are the Card Czar", "CAH_HUDSmall", SCREEN_X * 1900, SCREEN_Y * 540 + SCREEN_Y * 90, color, TEXT_ALIGN_RIGHT, TEXT_ALIGN_BOTTOM, 1, color_white)
 			end
 		end
 	end
