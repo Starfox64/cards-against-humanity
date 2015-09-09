@@ -28,11 +28,46 @@ function CAH.serverOptions( panel )
 
 	panel:AddControl("Slider", {
 		Label = "Max points:",
-		Command = "cah_maxpoints",
 		Type = "Integer",
 		Min = "1",
-		Max = "10"
+		Max = "20"
 	}):SetTooltip("The amount of AP required to win a game.")
+
+	panel:AddControl("Slider", {
+		Label = "Start Time:",
+		Type = "Integer",
+		Min = "1",
+		Max = "45"
+	}):SetTooltip("The amount of time it takes for a round to (re)start.")
+
+	panel:AddControl("Slider", {
+		Label = "Choose Time:",
+		Type = "Integer",
+		Min = "10",
+		Max = "60"
+	}):SetTooltip("The amount of time players have to choose a card.")
+
+	local expansions = panel:AddControl("DListView", {})
+	expansions:SetMultiSelect(false)
+	expansions:AddColumn("Name")
+	expansions:AddColumn("Enabled")
+	expansions:SetTall(ScrH() * 5 / 10)
+
+	for _, expansion in pairs(CAH.expansions) do
+		expansions:AddLine(expansion, tostring(CAH.Config.expansions[expansion]))
+	end
+
+	panel:AddControl("Button", {
+		Label = "Refresh Config"
+	})
+
+	panel:AddControl("Button", {
+		Label = "Save Config"
+	})
+end
+
+function CAH.setupOptionsControl( name, panel )
+	-- body
 end
 
 hook.Add("PopulateToolMenu", "CAH_PopulateToolMenu", function()

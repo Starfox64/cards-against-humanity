@@ -1,9 +1,13 @@
 CAH.Cards = CAH.Cards or {}
 CAH.Games = CAH.Games or {}
 CAH.CVAR = CAH.CVAR or {}
+CAH.Config = CAH.Config or {}
+CAH.expansions = CAH.expansions or {"Base"}
 CAH.Ready = CAH.Ready or false
 
 CAH.CardsURL = "https://raw.githubusercontent.com/Starfox64/cards-against-humanity/master/cah.json"
+CAH.LatestReleaseURL = "https://api.github.com/repos/Starfox64/cards-against-humanity/releases/latest"
+CAH.CurrentRelease = "0.0.0"
 
 -- Status Enums --
 CAH_IDLE = 0
@@ -11,6 +15,12 @@ CAH_DISCOVER = 1
 CAH_ANSWER = 2
 CAH_CHOOSE = 3
 CAH_END = 4
+
+-- Config Defaults --
+CAH.Config.maxPoints = CAH.Config.maxPoints or 5
+CAH.Config.startTime = CAH.Config.startTime or 20
+CAH.Config.chooseTime = CAH.Config.chooseTime or 30
+CAH.Config.expansions = CAH.Config.expansions or {Base = true}
 
 
 -- CAH Utils --
@@ -24,6 +34,8 @@ function CAH:LoadCards()
 				self.Cards = {}
 
 				for _, card in pairs(cards) do
+					if (card.numAnswers > 2) then continue end -- The game isn't compatible with 3 blanks black cards. (Soon™)
+
 					local text = htmlentities.decode(card.text)
 
 					self.Cards[card.id] = {
@@ -33,6 +45,10 @@ function CAH:LoadCards()
 						expansion = card.expansion
 					}
 					setmetatable(self.Cards[card.id], self.cardMeta)
+
+					if (not table.HasValue(self.expansions, card.expansion)) then
+						table.insert(self.expansions, card.expansion)
+					end
 				end
 
 				MsgC(Color(25, 200, 25), "[CAH] Loaded "..table.Count(self.Cards).." cards.\n")
@@ -65,6 +81,32 @@ end
 
 function CAH:GetGames()
 	return self.Games
+end
+
+function CAH:CheckUpdate()
+	http.Fetch(self.LatestReleaseURL,
+		function( body, len, headers, code )
+			local response = util.JSONToTable(body)
+
+			if (response and response.tag_name) then
+				if (response.tag_name == self.CurrentRelease) then
+					MsgC(Color(25, 200, 25), "[CAH] You are using the latest version ("..self.CurrentRelease..").\n")
+				else
+					MsgC(Color(251, 184, 41), "\n[CAH] Warning: You are not using the latest version!\n")
+					MsgC(Color(25, 200, 25), "[CAH] Latest: "..response.tag_name.."\n")
+					MsgC(Color(200, 70, 70), "[CAH] Current: "..self.CurrentRelease.."\n")
+					MsgC(Color(251, 184, 41), "[CAH] Update Title: "..response.name.."\n")
+					MsgC(Color(251, 184, 41), "[CAH] Update Description:\n"..response.body.."\n\n")
+					MsgC(Color(251, 184, 41), "[CAH] Download: "..response.html_url.."\n\n")
+				end
+			else
+				MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API response incorrect!\n")
+			end
+		end,
+		function( err )
+			MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API unreachable! (http.Fetch: "..err..")\n")
+		end
+	)
 end
 
 
@@ -420,8 +462,16 @@ end
 if (not CAH.Ready) then
 	if (SERVER) then
 		CAH:LoadCards()
+
+		-- Listen servers don't like calling http.Fetch on 2 realms at the same time so we add a delay.
+		timer.Simple(1, function()
+			CAH:CheckUpdate()
+		end)
 	else
-		timer.Simple(1, function() -- Listen servers don't like calling http.Fetch on 2 realms at the same time.
+		timer.Simple(1.5, function()
+			CAH:CheckUpdate()
+		end)
+		timer.Simple(2, function()
 			CAH:LoadCards()
 		end)
 	end
@@ -432,6 +482,6 @@ CAH.nextTry = 0
 hook.Add("Think", "CAH_LoadRetry", function()
 	if (not CAH.Ready and CurTime() > CAH.nextTry) then
 		CAH:LoadCards()
-		CAH.nextTry = CAH.nextTry + 15
+		CAH.nextTry = CurTime() + 15
 	end
 end)

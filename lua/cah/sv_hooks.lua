@@ -20,6 +20,8 @@ hook.Add("EntityRemoved", "CAH_EntityRemoved", function( ent )
 end)
 
 hook.Add("PlayerInitialSpawn", "CAH_PlayerInitialSpawn", function( client )
+	netstream.Start(client, "CAH_RefreshConfig", CAH.Config)
+
 	for k, cahGame in pairs(CAH:GetGames()) do
 		cahGame:Send(true, client)
 	end
