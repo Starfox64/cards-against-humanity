@@ -125,6 +125,7 @@ netstream.Hook("CAH_SaveConfig", function( client, config )
 		CAH:SaveConfig()
 
 		CAH:Notify("The config has been saved!", client)
+		netstream.Start(client, "CAH_RefreshConfig", CAH.Config)
 		MsgC(Color(251, 184, 41), "[CAH] "..client:Name().." ("..client:SteamID()..") edited the config.\n")
 	else
 		CAH:Notify("You need to be a super admin to edit the config", client)
