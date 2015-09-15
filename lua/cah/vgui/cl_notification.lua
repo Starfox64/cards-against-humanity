@@ -19,6 +19,7 @@ function PANEL:Paint( w, h )
 	surface.DisableClipping(true)
 
 	surface.SetDrawColor(Color(68, 142, 253))
+	draw.NoTexture()
 	surface.DrawPoly(triangle)
 	surface.DrawRect(10, 0, 100, h)
 
