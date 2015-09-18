@@ -25,6 +25,8 @@ CAH.Config.startTime = CAH.Config.startTime or 20
 CAH.Config.chooseTime = CAH.Config.chooseTime or 30
 CAH.Config.expansions = CAH.Config.expansions or {Base = true}
 
+file.CreateDir("cah")
+
 
 -- CAH Utils --
 function CAH:LoadCards( useDefault, sha )
@@ -35,7 +37,7 @@ function CAH:LoadCards( useDefault, sha )
 		if (SERVER) then
 			cards = file.Read("cardsDB.json", "GAME")
 		else
-			if (file.Exists("cah/"..self.CurrentRelease..".txt")) then
+			if (file.Exists("cah/"..self.CurrentRelease..".txt", "DATA")) then
 				cards = file.Exists("cah/"..self.CurrentRelease..".txt", "DATA")
 			else
 				MsgC(Color(200, 70, 70), "[CAH] Default cards database not found! (The download probably failed, you will not be able to play)\n")
@@ -113,11 +115,11 @@ function CAH:DownloadCards( sha, callback )
 				local cardsDB = baseSixFour.decode(response.content)
 				file.Write("cah/"..sha..".txt", cardsDB)
 
+				MsgC(Color(25, 200, 25), "[CAH] Cards database downloaded. ("..sha..".txt)\n")
+
 				if (callback) then
 					callback(sha, true)
 				end
-
-				MsgC(Color(25, 200, 25), "[CAH] Cards database downloaded. ("..sha..".txt)\n")
 			else
 				MsgC(Color(200, 70, 70), "[CAH] Failed to download the latest cards database! (Invalid Response from GitHub)\n")
 
@@ -151,7 +153,7 @@ function CAH:CheckDBUpdate()
 				end
 
 				if (sha) then
-					if (file.Exists("cah/"..sha..".txt")) then
+					if (file.Exists("cah/"..sha..".txt", "DATA")) then
 						MsgC(Color(25, 200, 25), "[CAH] Cards database up to date. ("..sha..".txt)\n")
 						self:LoadCards(false, sha)
 					else
@@ -167,13 +169,16 @@ function CAH:CheckDBUpdate()
 					end
 				else
 					MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API response incorrect!\n")
+					self:LoadCards()
 				end
 			else
 				MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API response incorrect!\n")
+				self:LoadCards()
 			end
 		end,
 		function( err )
 			MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API unreachable! (http.Fetch: "..err..")\n")
+			self:LoadCards()
 		end
 	)
 end
@@ -638,9 +643,11 @@ end
 
 if (not CAH.Ready) then
 	if (SERVER) then
-		CAH:CheckDBUpdate()
+		timer.Simple(1, function()
+			CAH:CheckDBUpdate()
+		end)
 
-		timer.Simple(5, function() -- The needs to be a delay between http request otherwise they fail.
+		timer.Simple(6, function() -- The needs to be a delay between http request otherwise they fail.
 			CAH:CheckUpdate()
 		end)
 	end
