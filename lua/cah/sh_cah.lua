@@ -4,8 +4,11 @@ CAH.CVAR = CAH.CVAR or {}
 CAH.Config = CAH.Config or {}
 CAH.expansions = CAH.expansions or {"Base"}
 CAH.Ready = CAH.Ready or false
+CAH.SHA = CAH.SHA or false
 
-CAH.CardsURL = "https://raw.githubusercontent.com/Starfox64/cards-against-humanity/master/cah.json"
+CAH.CardsDownloadURL = "https://api.github.com/repos/Starfox64/cards-against-humanity/git/blobs/"
+CAH.LatestCardsDB = "https://api.github.com/repos/Starfox64/cards-against-humanity/git/trees/master"
+CAH.CardsBackupURL = "https://raw.githubusercontent.com/Starfox64/cards-against-humanity/{version}/cardsDB.json"
 CAH.LatestReleaseURL = "https://api.github.com/repos/Starfox64/cards-against-humanity/releases/latest"
 CAH.CurrentRelease = "0.0.0"
 
@@ -24,41 +27,153 @@ CAH.Config.expansions = CAH.Config.expansions or {Base = true}
 
 
 -- CAH Utils --
-function CAH:LoadCards()
-	http.Fetch(CAH.CardsURL,
+function CAH:LoadCards( useDefault, sha )
+	local cards
+
+	if (useDefault) then
+		MsgC(Color(251, 184, 41), "[CAH] Loading the default cards database...\n")
+		if (SERVER) then
+			cards = file.Read("cardsDB.json", "GAME")
+		else
+			if (file.Exists("cah/"..self.CurrentRelease..".txt")) then
+				cards = file.Exists("cah/"..self.CurrentRelease..".txt", "DATA")
+			else
+				MsgC(Color(200, 70, 70), "[CAH] Default cards database not found! (The download probably failed, you will not be able to play)\n")
+			end
+		end
+	elseif (sha or file.Exists("cah/latestDB.txt", "DATA")) then
+		MsgC(Color(251, 184, 41), "[CAH] Loading the latest cards database...\n")
+
+		sha = sha or file.Read("cah/latestDB.txt", "DATA")
+
+		if (file.Exists("cah/"..sha..".txt", "DATA")) then
+			cards = file.Read("cah/"..sha..".txt", "DATA")
+		else
+			MsgC(Color(200, 70, 70), "[CAH] Latest cards database not found! (Deleting latestDB.txt)\n")
+
+			file.Delete("cah/latestDB.txt")
+			self:LoadCards(true)
+			return
+		end
+	else
+		self:LoadCards(true)
+		return
+	end
+
+	cards = util.JSONToTable(cards)
+
+	if (cards) then
+		self.Cards = {}
+
+		for _, card in pairs(cards) do
+			if (card.numAnswers > 2) then continue end -- The game isn't compatible with 3 blanks black cards. (Soon™)
+
+			local text = htmlentities.decode(card.text)
+
+			self.Cards[card.id] = {
+				cardType = card.cardType,
+				text = text,
+				numAnswers = card.numAnswers,
+				expansion = card.expansion
+			}
+			setmetatable(self.Cards[card.id], self.cardMeta)
+
+			if (not table.HasValue(self.expansions, card.expansion)) then
+				table.insert(self.expansions, card.expansion)
+			end
+		end
+
+		MsgC(Color(25, 200, 25), "[CAH] Loaded "..table.Count(self.Cards).." cards.\n")
+		self.SHA = sha or "default"
+		self.Ready = true
+
+		if (SERVER) then
+			netstream.Start(nil, "CAH_LoadCards", sha)
+		end
+	else
+		MsgC(Color(200, 70, 70), "[CAH] Failed to load cards! (JSON Parsing Error)\n")
+
+		if (sha) then
+			file.Delete("cah/"..sha..".txt")
+			self:LoadCards(true)
+		end
+	end
+end
+
+function CAH:DownloadCards( sha, callback )
+	MsgC(Color(251, 184, 41), "[CAH] Downloading the latest cards database...\n")
+
+	local downloadURL = string.len(sha) > 8 and self.CardsDownloadURL..sha or string.Replace(self.CardsBackupURL, "{version}", self.CurrentRelease)
+
+	http.Fetch(downloadURL,
 		function( body, len, headers, code )
-			local cards = body
-			cards = util.JSONToTable(cards)
+			local response = util.JSONToTable(body)
 
-			if (cards) then
-				self.Cards = {}
+			if (response and response.content) then
+				local cardsDB = baseSixFour.decode(response.content)
+				file.Write("cah/"..sha..".txt", cardsDB)
 
-				for _, card in pairs(cards) do
-					if (card.numAnswers > 2) then continue end -- The game isn't compatible with 3 blanks black cards. (Soon™)
-
-					local text = htmlentities.decode(card.text)
-
-					self.Cards[card.id] = {
-						cardType = card.cardType,
-						text = text,
-						numAnswers = card.numAnswers,
-						expansion = card.expansion
-					}
-					setmetatable(self.Cards[card.id], self.cardMeta)
-
-					if (not table.HasValue(self.expansions, card.expansion)) then
-						table.insert(self.expansions, card.expansion)
-					end
+				if (callback) then
+					callback(sha, true)
 				end
 
-				MsgC(Color(25, 200, 25), "[CAH] Loaded "..table.Count(self.Cards).." cards.\n")
-				self.Ready = true
+				MsgC(Color(25, 200, 25), "[CAH] Cards database downloaded. ("..sha..".txt)\n")
 			else
-				MsgC(Color(200, 70, 70), "[CAH] Failed to load cards! (JSON Parsing Error)\n")
+				MsgC(Color(200, 70, 70), "[CAH] Failed to download the latest cards database! (Invalid Response from GitHub)\n")
+
+				if (callback) then
+					callback(sha, false)
+				end
 			end
 		end,
 		function( err )
-			MsgC(Color(200, 70, 70), "[CAH] Failed to load cards! (http.Fetch: "..err..")\n")
+			MsgC(Color(200, 70, 70), "[CAH] Failed to download the latest cards database! (http.Fetch: "..err..")\n")
+
+			if (callback) then
+				callback(sha, false)
+			end
+		end
+	)
+end
+
+function CAH:CheckDBUpdate()
+	http.Fetch(self.LatestCardsDB,
+		function( body, len, headers, code )
+			local response = util.JSONToTable(body)
+
+			if (response and response.tree) then
+				local sha
+				for _, object in pairs(response.tree) do
+					if (object.path == "cardsDB.json") then
+						sha = object.sha
+						break
+					end
+				end
+
+				if (sha) then
+					if (file.Exists("cah/"..sha..".txt")) then
+						MsgC(Color(25, 200, 25), "[CAH] Cards database up to date. ("..sha..".txt)\n")
+						self:LoadCards(false, sha)
+					else
+						MsgC(Color(251, 184, 41), "[CAH] A new cards database is available.\n")
+						self:DownloadCards(sha, function( sha, success )
+							if (success) then
+								file.Write("cah/latestDB.txt", sha)
+								self:LoadCards(false, sha)
+							else
+								self:LoadCards()
+							end
+						end)
+					end
+				else
+					MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API response incorrect!\n")
+				end
+			else
+				MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API response incorrect!\n")
+			end
+		end,
+		function( err )
+			MsgC(Color(200, 70, 70), "[CAH] Cannot check for updates, GitHub API unreachable! (http.Fetch: "..err..")\n")
 		end
 	)
 end
@@ -178,7 +293,8 @@ end
 if (SERVER) then
 
 	function CAH.gameMeta:RemovePlayer( client )
-		table.RemoveByValue(self.players, client)
+		local seatID = table.KeyFromValue(self.players, client)
+		self.players[seatID] = nil
 		client:ExitVehicle()
 
 		client.CAH = {
@@ -218,6 +334,12 @@ if (SERVER) then
 		for seatID, client in pairs(self:GetPlayers()) do
 			local missingCards = 5 - #client:GetCards()
 
+			-- Generates a new white pool if it is empty
+			if (#self.wPool == 0) then
+				local wPool, bPool = CAH:GeneratePool()
+				self.wPool = wPool
+			end
+
 			if (missingCards != 0) then
 				for i=1, missingCards do
 					local poolIndex = math.random(1, #self.wPool)
@@ -230,8 +352,44 @@ if (SERVER) then
 
 	function CAH.gameMeta:NewRound()
 		self:SetStatus(CAH_DISCOVER)
+		self:SetTimeLeft(CAH.Config.chooseTime)
 		self:GenerateCards()
 		local newCzar = self:FindNewCzar()
+
+		if (#self.bPool == 0) then
+			self:SetStatus(CAH_END)
+			self:SetTimeLeft(5)
+
+			local winners, maxPoints = {}, 0
+			for _, client in pairs(self:GetPlayers()) do
+				if (client:GetCAHPoints() > maxPoints) then
+					winners = {client}
+					maxPoints = client:GetCAHPoints()
+				elseif (client:GetCAHPoints() == maxPoints) then
+					table.insert(winners, client)
+				end
+			end
+
+			local notificationText = "You ran out of black cards! The winner"..(#winners > 1 and " is " or "s are ")
+			if (#winners > 1) then
+				for k, winner in ipairs(winners) do
+					if (k == 1) then
+						notificationText = notificationText..winner:Name().."."
+					elseif (k == #winners) then
+						notificationText = notificationText.." and "..winner:Name()
+					else
+						notificationText = notificationText..", "..winner:Name()
+					end
+				end
+			else
+				notificationText = notificationText..winner:Name().."."
+			end
+
+			CAH:Notify(notificationText, "cah/win64.png", cahGame:GetPlayers())
+
+			self:Send(true)
+			return
+		end
 
 		local poolIndex = math.random(1, #self.bPool)
 		self:SetBlackCard(self.bPool[poolIndex])
@@ -239,9 +397,13 @@ if (SERVER) then
 
 		self:Send(true)
 
-		for _, client in pairs(self:GetPlayer()) do
-			CAH:Notify("A new round is starting, the Card Czar is "..newCzar:Name(), cahGame:GetPlayers())
+		for _, client in pairs(self:GetPlayers()) do
+			if (client != newCzar) then
+				CAH:Notify("A new round is starting, the Card Czar is "..newCzar:Name(), client)
+			end
 		end
+
+		CAH:Notify("You are the new Card Czar! Reveal the black card.", newCzar)
 	end
 
 	function CAH.gameMeta:SetTimeLeft( timeLeft )
@@ -253,24 +415,27 @@ if (SERVER) then
 	end
 
 	function CAH.gameMeta:FindNewCzar()
-		local newCzar, nextIsCzar, reProcess
+		local newCzar, czarID, lastID, nextIsCzar
 
 		for seatID, client in pairs(self:GetPlayers()) do
-			if (client == self) then
-				nextIsCzar = true
+			lastID = seatID
 
-				if (seatID == 4) then
-					reProcess = true
-				end
+			if (self:GetCzar() == nil) then
+				newCzar = client
+				break
+			elseif (client == self:GetCzar()) then
+				czarID = seatID
+				nextIsCzar = true
 			elseif (nextIsCzar) then
 				newCzar = client
 				break
 			end
 		end
 
-		if (reProcess) then
+		if (lastID == czarID) then
 			for _, client in pairs(self:GetPlayers()) do
 				newCzar = client
+				break
 			end
 		end
 
@@ -439,6 +604,18 @@ if (SERVER) then
 		end
 	end
 
+	function CAH.playerMeta:Discover()
+		local cahGame = self:GetCAHGame()
+		if (self == cahGame:GetCardCzar() and cahGame:GetStatus() == CAH_DISCOVER) then
+			cahGame:SetStatus(CAH_ANSWER)
+			cahGame:SetTimeLeft(CAH.Config.chooseTime)
+
+			for _, client in pairs(cahGame:GetPlayers()) do
+				CAH:Notify("The Card Czar revealed the black card.", client)
+			end
+		end
+	end
+
 	function CAH.playerMeta:SetSelectedCard( isSecond, cardID )
 		if not (self.CAH) then return end
 		local index = isSecond and 2 or 1
@@ -461,27 +638,10 @@ end
 
 if (not CAH.Ready) then
 	if (SERVER) then
-		CAH:LoadCards()
+		CAH:CheckDBUpdate()
 
-		-- Listen servers don't like calling http.Fetch on 2 realms at the same time so we add a delay.
-		timer.Simple(1, function()
+		timer.Simple(5, function() -- The needs to be a delay between http request otherwise they fail.
 			CAH:CheckUpdate()
-		end)
-	else
-		timer.Simple(1.5, function()
-			CAH:CheckUpdate()
-		end)
-		timer.Simple(2, function()
-			CAH:LoadCards()
 		end)
 	end
 end
-
--- Card loading auto-retry --
-CAH.nextTry = 0
-hook.Add("Think", "CAH_LoadRetry", function()
-	if (not CAH.Ready and CurTime() > CAH.nextTry) then
-		CAH:LoadCards()
-		CAH.nextTry = CurTime() + 15
-	end
-end)

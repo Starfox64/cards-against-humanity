@@ -22,6 +22,10 @@ end)
 hook.Add("PlayerInitialSpawn", "CAH_PlayerInitialSpawn", function( client )
 	netstream.Start(client, "CAH_RefreshConfig", CAH.Config)
 
+	if (CAH.Ready) then
+		netstream.Start(client, "CAH_LoadCards", CAH.SHA)
+	end
+
 	for k, cahGame in pairs(CAH:GetGames()) do
 		cahGame:Send(true, client)
 	end
@@ -37,7 +41,7 @@ hook.Add("Think", "CAH_Think", function()
 			cahGame:SetStatus(CAH_IDLE)
 			cahGame:SetTimeLeft(math.huge)
 
-			for _, client in pairs(cahGame:GetPlayer()) do
+			for _, client in pairs(cahGame:GetPlayers()) do
 				client:SetCAHPoints(0)
 				client.CAH.cards = {}
 				client.CAH.selected = {}
@@ -52,6 +56,9 @@ hook.Add("Think", "CAH_Think", function()
 
 			CAH:Notify("The game will start in "..CAH.Config.startTime.." seconds.", cahGame:GetPlayers())
 		elseif ((status == CAH_IDLE or status == CAH_DISCOVER) and timeLeft <= 0) then -- Game starting / Czar inactive.
+			local wPool, bPool = CAH:GeneratePool()
+			cahGame.wPool, cahGame.bPool = wPool, bPool
+
 			cahGame:NewRound()
 		elseif (status == CAH_ANSWER) then -- Players are answering to / completing the black card.
 			local playersReady, nextPhase = 0, false

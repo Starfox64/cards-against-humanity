@@ -140,8 +140,14 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 
 				-- Black Card --
 				if (cahGame:GetBlackCard() and cursor.r == 180) then
-					local flipped = cahGame:GetStatus() < CAH_DISCOVER
+					local mainX, mainY = TABLE_WIDTH - 1164 - CARD_WIDTH, TABLE_HEIGHT - 350 - CARD_HEIGHT
+					local flipped = cahGame:GetStatus() == CAH_DISCOVER
 					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped)
+					CAH:AddClickPos(mainX, mainY, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cahGame:GetBlackCard(), flipped = flipped})
+
+					if (ply == cahGame:GetCzar() and cahGame:GetStatus() == CAH_DISCOVER) then
+						CAH:AddClickPos(mainX, mainY, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "discover")
+					end
 				end
 			cam.End3D2D()
 
@@ -185,9 +191,13 @@ hook.Add("PostDrawOpaqueRenderables", "CAH_PostDrawOpaqueRenderables", function(
 
 				-- Black Card --
 				if (cahGame:GetBlackCard() and cursor.r == 0) then
-					local flipped = cahGame:GetStatus() < CAH_DISCOVER
+					local flipped = cahGame:GetStatus() == CAH_DISCOVER
 					CAH:DrawCard(cahGame:GetBlackCard(), 1164, 350, flipped)
 					CAH:AddClickPos(1164, 350, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK2, "preview", {cardID = cahGame:GetBlackCard(), flipped = flipped})
+
+					if (ply == cahGame:GetCzar() and cahGame:GetStatus() == CAH_DISCOVER) then
+						CAH:AddClickPos(1164, 350, CARD_WIDTH, CARD_HEIGHT, IN_ATTACK, "discover")
+					end
 				end
 
 				-- Cursor --
@@ -346,6 +356,8 @@ function CAH:CheckClickPos( cursor )
 					if (cursor.x >= clickPos.x and cursor.y >= clickPos.y and cursor.x <= clickPos.x + clickPos.w and cursor.y <= clickPos.y + clickPos.h) then
 						if (clickPos.action == "draw") then
 							netstream.Start("CAH_DrawCard", clickPos.arg)
+						elseif (clickPos.action == "discover") then
+							netstream.Start("CAH_DiscoverCard")
 						elseif (clickPos.action == "choose") then
 							netstream.Start("CAH_ChooseCard", clickPos.arg)
 						elseif (clickPos.action == "quit") then
@@ -458,4 +470,24 @@ end)
 
 netstream.Hook("CAH_Notification", function( data )
 	CAH:Notify(data.m, data.i, data.ns)
+end)
+
+netstream.Hook("CAH_LoadCards", function( sha )
+	if (file.Exists("cah/"..(sha == "default" and CAH.CurrentRelease or sha)..".txt", "DATA")) then
+		if (sha == "default") then
+			CAH:LoadCards(true)
+		else
+			CAH:LoadCards(false, sha)
+		end
+	else
+		sha = sha == "default" and CAH.CurrentRelease or sha
+
+		CAH:DownloadCards(sha, function( sha, success )
+			if (sha == CAH.CurrentRelease) then
+				CAH:LoadCards(true)
+			else
+				CAH:LoadCards(false, sha)
+			end
+		end)
+	end
 end)

@@ -4,35 +4,28 @@ resource.AddFile("materials/models/props_interiors/table_picnic.vmt")
 
 
 function CAH:AddTable( cahTable )
-	if self.Ready then
-		local wPool, bPool = CAH:GeneratePool(self.expansions)
+	local cahGame = {
+		table = cahTable:EntIndex(),
+		players = {},
+		czar = nil,
+		black = nil,
+		wPool = {},
+		bPool = {},
+		endTime = math.huge,
+		status = CAH_IDLE
+	}
+	setmetatable(cahGame, CAH.gameMeta)
 
-		local cahGame = {
-			table = cahTable:EntIndex(),
-			players = {},
-			czar = nil,
-			black = nil,
-			wPool = wPool,
-			bPool = bPool,
-			endTime = math.huge,
-			status = CAH_IDLE
-		}
-		setmetatable(cahGame, CAH.gameMeta)
-
-		self.Games[cahTable:EntIndex()] = cahGame
-		cahGame:Send()
-	else
-		-- Change icon
-		CAH:Notify("Cannot create CAH Table, cards not loaded!")
-	end
+	self.Games[cahTable:EntIndex()] = cahGame
+	cahGame:Send()
 end
 
-function CAH:GeneratePool( expansions )
+function CAH:GeneratePool()
 	local wPool, bPool = {}, {}
 
-	for cardID, card in pairs(CAH:GetCards()) do
-		for k, extension in pairs(expansions) do
-			if (card:IsExpansion(extension)) then
+	for cardID, card in pairs(self:GetCards()) do
+		for k, expansion in pairs(self.expansions) do
+			if (self.Config.expansions[expansion] and card:IsExpansion(expansion)) then
 				if (card:IsAnswer()) then
 					table.insert(wPool, cardID)
 				else
@@ -60,15 +53,15 @@ function CAH:SaveConfig()
 		end
 
 		local configData = von.serialize(self.Config)
-		file.Write("cah_config.txt", configData)
+		file.Write("cah/config.txt", configData)
 
 		MsgC(Color(25, 200, 25), "[CAH] Server config saved.\n")
 	end
 end
 
 function CAH:LoadConfig()
-	if (file.Exists("cah_config.txt", "DATA")) then
-		local success, configData = pcall(von.deserialize, file.Read("cah_config.txt", "DATA"))
+	if (file.Exists("cah/config.txt", "DATA")) then
+		local success, configData = pcall(von.deserialize, file.Read("cah/config.txt", "DATA"))
 
 		if (success) then
 			-- Adds expansions to the config table if they aren't already.
@@ -107,6 +100,10 @@ netstream.Hook("CAH_Quit", function( client )
 	end
 end)
 
+netstream.Hook("CAH_DiscoverCard", function( client )
+	client:Discover()
+end)
+
 netstream.Hook("CAH_DrawCard", function( client, cardID )
 	client:DrawCard(cardID)
 end)
@@ -121,6 +118,11 @@ end)
 
 netstream.Hook("CAH_SaveConfig", function( client, config )
 	if (client:IsSuperAdmin()) then
+		if (#table.KeysFromValue(config.expansions, true) == 0) then
+			CAH:Notify("The config you are trying to save does not have any active expansions!", client)
+			return
+		end
+
 		CAH.Config = config
 		CAH:SaveConfig()
 
